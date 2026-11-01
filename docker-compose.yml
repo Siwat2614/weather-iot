@@ -1,0 +1,65 @@
+services:
+  mqtt:
+    image: eclipse-mosquitto:2
+
+    restart: unless-stopped
+    ports:
+      - "${MQTT_BIND:-127.0.0.1}:${MQTT_HOST_PORT:-28883}:1883"
+    volumes:
+      - ./mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+
+  mongodb:
+    image: mongo:7
+
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_DATABASE=${MONGO_DB_NAME:-weather_db}
+    volumes:
+      - mongo_data:/data/db
+    expose:
+      - "27017"
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' | grep 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  collector:
+    build: ./collector
+
+    restart: unless-stopped
+    depends_on:
+      mqtt:
+        condition: service_started
+      mongodb:
+        condition: service_healthy
+    environment:
+      - MQTT_BROKER=mqtt
+      - MQTT_PORT=1883
+      - MQTT_TOPIC=${MQTT_TOPIC:-weather/+/data}
+      - MONGO_URL=mongodb://mongodb:27017
+      - MONGO_DB_NAME=${MONGO_DB_NAME:-weather_db}
+      - MONGO_COLLECTION=${MONGO_COLLECTION:-weather_readings}
+
+  webapp:
+    build: ./webapp
+
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017
+      - MONGO_DB_NAME=${MONGO_DB_NAME:-weather_db}
+      - MONGO_COLLECTION=${MONGO_COLLECTION:-weather_readings}
+      - ONLINE_THRESHOLD_SECONDS=${ONLINE_THRESHOLD_SECONDS:-30}
+    ports:
+      - "127.0.0.1:${WEBAPP_HOST_PORT:-18001}:8000"
+
+volumes:
+  mongo_data:
+  mosquitto_data:
+  mosquitto_log:
