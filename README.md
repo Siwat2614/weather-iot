@@ -2,6 +2,10 @@
 
 ESP32/ESP8266 → MQTT (Mosquitto) → validated Collector → MongoDB → FastAPI → dashboard.
 
+## Online demo
+
+[Open the interactive demo](https://siwat2614.github.io/demos/weather/) — uses fixed, synthetic readings and runs without sensors or a backend. It is not live weather or air-quality data. Station and month filters and charts are interactive. The demo source is in [`demo/`](demo/).
+
 ## Run locally
 
 ```sh
